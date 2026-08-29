@@ -1,9 +1,9 @@
-# Fractalarium — a browser Mandelbulb explorer
+# Fractalarium — a browser fractal explorer
 
-A real-time, interactive **3D Mandelbulb** fractal explorer that runs entirely in
-the browser. Inspired by the gorgeous [Mandelbulber2](https://github.com/buddhi1980/mandelbulber2)
+A real-time, interactive **3D fractal** explorer that runs entirely in the browser.
+Inspired by the gorgeous [Mandelbulber2](https://github.com/buddhi1980/mandelbulber2)
 desktop renderer, this is a lightweight, zero-dependency, "more interactive vibe"
-take: a single HTML file that ray-marches the fractal on the GPU with WebGL.
+take: a single HTML file that ray-marches fractals on the GPU with WebGL.
 
 ![preview](./preview.png)
 
@@ -12,37 +12,51 @@ take: a single HTML file that ray-marches the fractal on the GPU with WebGL.
 Just open `index.html` in any WebGL-capable browser — no build step, no server, no
 dependencies. Or host the folder (e.g. GitHub Pages) and share the link.
 
-## What it does
+## Fractals
 
-The fractal is rendered by **ray marching a distance estimator** of the Mandelbulb
-in a GLSL fragment shader, with orbit-trap coloring, soft shadows, ambient
-occlusion, fresnel rim light, and a volumetric glow pass.
+Pick from a formula dropdown, each with its own sensible default framing:
 
-### Controls
-- **Drag** to orbit · **scroll / pinch** to zoom
-- **Power (morph)** — reshape the fractal from blobby (2) to spiky (16)
-- **Auto-morph power** — breathe the power value up and down over time
-- **Auto-rotate** — slow turntable spin
-- **Detail (iterations)** — fractal recursion depth
-- **Palettes + Hue shift** — seven cosine-gradient color moods
+- **Mandelbulb** — the classic power-N bulb
+- **Mandelbox** — box-fold / sphere-fold architecture
+- **Menger sponge** — recursive cubic lattice
+- **Sierpinski** — kaleidoscopic tetrahedron (KIFS)
+- **Juliabulb** — the Julia variant of the Mandelbulb (fixed `c`)
+
+The **Shape / power** slider means something different per fractal (exponent, box
+scale, fold scale) and can be auto-morphed for a breathing effect.
+
+## Controls
+
+- **Drag** to orbit · **scroll / pinch** to zoom (down to close-up detail)
+- **WASD** to fly through the fractal · **Q/E** up/down · **Fly-through (auto-dive)**
+  toggle for a hands-free infinite dive (great with Mandelbox / Menger)
+- **Auto-morph shape** / **Auto-rotate** for motion
+- **Detail (iterations)** — recursion depth
+- **Palettes + Hue shift** — seven cosine-gradient color moods, orbit-trap driven
 - **Glow / Light angle** — mood and key-light direction
 - **Quality** — Draft → Ultra (trades resolution/steps for framerate)
 - **Soft shadows** — toggle the shadow march
-- **Surprise me** — randomize the look · **Save PNG** — grab the current frame
+- **Surprise me** — randomize everything · **Save PNG** — grab the current frame
+
+### Shareable links
+The full scene — fractal, all parameters, palette, **and the exact camera** — is
+encoded into the URL. Click **Copy link** to grab a link that reopens the exact
+same view, or just bookmark/refresh: the URL updates live as you explore.
 
 ### Keyboard
-`H` hide/show UI · `Space` pause · `R` reset view · `F` fullscreen
+`WASD`/`Q`/`E` fly · `H` hide/show UI · `Space` pause · `R` reset view · `F` fullscreen
 
 ## How it works (quick tour)
 
 - A single full-screen triangle runs the fragment shader for every pixel.
-- `map()` evaluates the classic Mandelbulb iteration
-  `z → z^power + c` in spherical coordinates and returns an analytic distance
-  estimate plus an orbit trap (used for coloring).
-- The camera is a simple yaw/pitch/distance orbit around the origin; the shader
-  gets the camera position and an orthonormal basis as uniforms.
-- Everything is driven by uniforms, so all sliders update live with no shader
-  recompilation.
+- `map()` selects the active fractal's **distance estimator** and returns both the
+  distance and an *orbit trap* (used for coloring).
+- The ray marcher steps along each ray by the estimated distance until it hits a
+  surface; normals come from the DE gradient, with soft shadows, ambient
+  occlusion, fresnel rim light, and a volumetric glow pass.
+- The camera is a yaw/pitch/distance orbit around a movable target; flying just
+  moves that target through the field. All controls are uniforms, so everything
+  updates live with no shader recompilation.
 
 ## Notes
 

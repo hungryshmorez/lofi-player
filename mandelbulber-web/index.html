@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Fractalarium — a browser Mandelbulb explorer</title>
-<meta name="description" content="A real-time, interactive 3D Mandelbulb fractal explorer in the browser. Inspired by Mandelbulber2." />
+<title>Fractalarium — a browser fractal explorer</title>
+<meta name="description" content="A real-time, interactive 3D fractal explorer in the browser: Mandelbulb, Mandelbox, Menger sponge, Sierpinski and Juliabulb, with fly-through and shareable links. Inspired by Mandelbulber2." />
 <style>
   :root {
     --bg: #05060a;
@@ -27,12 +27,10 @@
   #glcanvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
   #glcanvas.dragging { cursor: grabbing; }
 
-  /* --- top bar --- */
   #topbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 5;
     display: flex; align-items: center; gap: 14px;
-    padding: 12px 16px;
-    pointer-events: none;
+    padding: 12px 16px; pointer-events: none;
   }
   #brand { pointer-events: auto; }
   #brand h1 {
@@ -45,10 +43,9 @@
   #hud { margin-left: auto; pointer-events: none; text-align: right; font-size: 10px; color: var(--muted); line-height: 1.5; }
   #hud b { color: var(--accent); font-weight: 600; }
 
-  /* --- control panel --- */
   #panel {
     position: fixed; top: 64px; right: 14px; z-index: 6;
-    width: 288px; max-height: calc(100vh - 84px); overflow-y: auto;
+    width: 292px; max-height: calc(100vh - 84px); overflow-y: auto;
     background: var(--panel); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--panel-border); border-radius: 16px;
     padding: 14px 16px 18px;
@@ -91,7 +88,7 @@
     pointer-events: auto; cursor: pointer; font: inherit; font-size: 10px; letter-spacing: .5px;
     padding: 6px 9px; border-radius: 9px; color: var(--muted);
     background: rgba(255,255,255,.04); border: 1px solid var(--panel-border);
-    transition: all .18s; flex: 1 1 auto; text-align: center;
+    transition: all .18s; flex: 1 1 auto; text-align: center; white-space: nowrap;
   }
   .chip:hover { color: var(--text); border-color: var(--accent); }
   .chip.active { color: #06131c; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; font-weight: 700; }
@@ -102,15 +99,15 @@
   .toggle.on .sw { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
   .toggle.on .sw::after { transform: translateX(16px); }
 
-  .btnrow { display: flex; gap: 8px; margin-top: 14px; }
+  .btnrow { display: flex; gap: 8px; margin-top: 12px; }
   .btn {
     pointer-events: auto; flex: 1; cursor: pointer; font: inherit; font-size: 11px;
     padding: 9px; border-radius: 10px; color: var(--text);
     background: rgba(255,255,255,.05); border: 1px solid var(--panel-border); transition: all .18s;
   }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.ok { color: #06131c; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; font-weight: 700; }
 
-  /* --- floating toggle button (when panel hidden) --- */
   #fab {
     position: fixed; top: 64px; right: 14px; z-index: 7; width: 44px; height: 44px; border-radius: 12px;
     display: none; align-items: center; justify-content: center; cursor: pointer;
@@ -118,22 +115,28 @@
     color: var(--accent); font-size: 20px;
   }
 
-  /* --- bottom hint --- */
   #hint {
     position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 5;
     font-size: 10px; color: var(--muted); letter-spacing: 1px; text-align: center;
     background: rgba(10,12,20,.5); padding: 6px 14px; border-radius: 20px; border: 1px solid var(--panel-border);
     backdrop-filter: blur(8px); transition: opacity .6s; pointer-events: none; white-space: nowrap;
   }
+  #toast {
+    position: fixed; bottom: 54px; left: 50%; transform: translateX(-50%) translateY(10px); z-index: 8;
+    font-size: 11px; color: #06131c; letter-spacing: .5px; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); padding: 8px 16px; border-radius: 20px;
+    opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
   @media (max-width: 640px) {
     #panel { width: calc(100vw - 28px); top: auto; bottom: 0; right: 0; left: 0;
-             max-height: 56vh; border-radius: 18px 18px 0 0; }
+             max-height: 58vh; border-radius: 18px 18px 0 0; }
     #panel.hidden { transform: translateY(120%); }
     #fab { top: auto; bottom: 14px; right: 14px; }
     #hint { display: none; }
     #hud { display: none; }
   }
-  /* loading / error */
   #msg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
          z-index: 20; text-align: center; padding: 24px; font-size: 13px; line-height: 1.6; color: var(--muted);
          background: radial-gradient(circle at 50% 40%, #0b1020, #04050a); }
@@ -146,11 +149,11 @@
 <div id="topbar">
   <div id="brand">
     <h1>Fractalarium</h1>
-    <p>real-time mandelbulb · webgl</p>
+    <p>real-time fractals · webgl</p>
   </div>
   <div id="hud">
     <div><b id="fps">–</b> fps</div>
-    <div>power <b id="hudPower">8.0</b></div>
+    <div><b id="hudName">Mandelbulb</b></div>
   </div>
 </div>
 
@@ -158,17 +161,31 @@
 
 <div id="panel">
   <div class="group">
+    <div class="glabel">Fractal</div>
+    <div class="chips" id="fractals"></div>
+  </div>
+
+  <div class="group">
     <div class="glabel">Form</div>
     <div class="row">
-      <div class="rlabel"><label>Power (morph)</label><span class="val" id="v_power">8.00</span></div>
+      <div class="rlabel"><label id="l_power">Shape / power</label><span class="val" id="v_power">8.00</span></div>
       <input type="range" id="power" min="2" max="16" step="0.05" value="8">
     </div>
     <div class="row">
       <div class="rlabel"><label>Detail (iterations)</label><span class="val" id="v_iter">12</span></div>
       <input type="range" id="iter" min="2" max="20" step="1" value="12">
     </div>
-    <div class="toggle" id="t_animate"><span>Auto-morph power</span><span class="sw"></span></div>
+    <div class="toggle" id="t_animate"><span>Auto-morph shape</span><span class="sw"></span></div>
     <div class="toggle on" id="t_rotate"><span>Auto-rotate</span><span class="sw"></span></div>
+  </div>
+
+  <div class="group">
+    <div class="glabel">Motion</div>
+    <div class="toggle" id="t_fly"><span>Fly-through (auto-dive)</span><span class="sw"></span></div>
+    <div class="row">
+      <div class="rlabel"><label>Fly speed</label><span class="val" id="v_flyspd">0.30</span></div>
+      <input type="range" id="flyspd" min="0.02" max="1.5" step="0.02" value="0.3">
+    </div>
   </div>
 
   <div class="group">
@@ -202,12 +219,16 @@
     <button class="btn" id="btnRandom">Surprise me</button>
   </div>
   <div class="btnrow">
+    <button class="btn ok" id="btnShare">Copy link</button>
     <button class="btn" id="btnShot">Save PNG</button>
-    <button class="btn" id="btnHide">Hide ⟩</button>
+  </div>
+  <div class="btnrow">
+    <button class="btn" id="btnHide" style="flex:1">Hide ⟩</button>
   </div>
 </div>
 
-<div id="hint">drag to orbit · scroll to zoom · <b>H</b> hide UI · <b>Space</b> pause · <b>R</b> reset</div>
+<div id="hint">drag orbit · scroll zoom · <b>WASD</b> fly · <b>Q/E</b> up-down · <b>H</b> hide · <b>Space</b> pause · <b>R</b> reset</div>
+<div id="toast">link copied</div>
 
 <div id="msg"><div><div class="big">initializing…</div>summoning the fractal</div></div>
 
@@ -238,8 +259,10 @@
     uniform float uPower;
     uniform int   uIter;
     uniform int   uMaxSteps;
+    uniform int   uFractal;   // 0 bulb, 1 box, 2 menger, 3 sierpinski, 4 julia
+    uniform vec3  uJuliaC;
     uniform vec3  uCamPos;
-    uniform mat3  uCamBasis;   // right, up, forward
+    uniform mat3  uCamBasis;
     uniform float uHue;
     uniform float uGlow;
     uniform float uLight;
@@ -251,15 +274,15 @@
 
     #define MAX_ITER 20
     #define MAX_STEPS 160
-    #define FAR 12.0
+    #define FAR 14.0
 
-    // IQ cosine palette
     vec3 palette(float t) {
       return uPalA + uPalB * cos(6.28318530718 * (uPalC * t + uPalD + uHue));
     }
 
-    // Mandelbulb distance estimator with orbit trap
-    float map(vec3 pos, out vec4 trap) {
+    // ---- Mandelbulb / Juliabulb ----
+    float bulbDE(vec3 pos, bool julia, out vec4 trap) {
+      vec3 c = julia ? uJuliaC : pos;
       vec3 z = pos;
       float dr = 1.0;
       float r = 0.0;
@@ -273,19 +296,83 @@
         float phi = atan(z.y, z.x);
         dr = pow(r, power - 1.0) * power * dr + 1.0;
         float zr = pow(r, power);
-        theta *= power;
-        phi *= power;
+        theta *= power; phi *= power;
         z = zr * vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
-        z += pos;
+        z += c;
         trap = min(trap, vec4(abs(z), dot(z, z)));
       }
       return 0.5 * log(r) * r / dr;
     }
 
+    // ---- Mandelbox ----
+    float boxDE(vec3 p, out vec4 trap) {
+      float scale = 1.6 + (uPower - 2.0) / 14.0 * 1.4;   // ~1.6 .. 3.0
+      vec3 offset = p;
+      vec3 z = p;
+      float dr = 1.0;
+      trap = vec4(1e10);
+      for (int i = 0; i < MAX_ITER; i++) {
+        if (i >= uIter) break;
+        z = clamp(z, -1.0, 1.0) * 2.0 - z;               // box fold
+        float r2 = dot(z, z);
+        float m = (r2 < 0.25) ? 4.0 : ((r2 < 1.0) ? 1.0 / r2 : 1.0); // sphere fold
+        z = z * scale * m + offset;
+        dr = dr * abs(scale) * m + 1.0;
+        trap = min(trap, vec4(abs(z), dot(z, z)));
+      }
+      return length(z) / abs(dr);
+    }
+
+    float sdBox(vec3 p, vec3 b) { vec3 q = abs(p) - b; return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0); }
+
+    // ---- Menger sponge ----
+    float mengerDE(vec3 p, out vec4 trap) {
+      float d = sdBox(p, vec3(1.2));
+      float s = 1.0;
+      trap = vec4(1e10);
+      for (int i = 0; i < MAX_ITER; i++) {
+        if (i >= uIter || i >= 8) break;
+        vec3 a = mod(p * s, 2.0) - 1.0;
+        s *= 3.0;
+        vec3 r = abs(1.0 - 3.0 * abs(a));
+        float da = max(r.x, r.y);
+        float db = max(r.y, r.z);
+        float dc = max(r.z, r.x);
+        float c = (min(da, min(db, dc)) - 1.0) / s;
+        d = max(d, c);
+        trap = min(trap, vec4(abs(a), dot(a, a)));
+      }
+      return d;
+    }
+
+    // ---- Sierpinski tetrahedron (KIFS) ----
+    float sierpinskiDE(vec3 p, out vec4 trap) {
+      float scale = 1.6 + (uPower - 2.0) / 14.0 * 0.6;   // ~1.6 .. 2.2
+      vec3 z = p;
+      trap = vec4(1e10);
+      for (int i = 0; i < MAX_ITER; i++) {
+        if (i >= uIter) break;
+        if (z.x + z.y < 0.0) z.xy = -z.yx;
+        if (z.x + z.z < 0.0) z.xz = -z.zx;
+        if (z.y + z.z < 0.0) z.yz = -z.zy;
+        z = z * scale - vec3(scale - 1.0);
+        trap = min(trap, vec4(abs(z), dot(z, z)));
+      }
+      return length(z) * pow(scale, -float(uIter));
+    }
+
+    float map(vec3 p, out vec4 trap) {
+      if (uFractal == 1) return boxDE(p, trap);
+      else if (uFractal == 2) return mengerDE(p, trap);
+      else if (uFractal == 3) return sierpinskiDE(p, trap);
+      else if (uFractal == 4) return bulbDE(p, true, trap);
+      return bulbDE(p, false, trap);
+    }
+
     float mapD(vec3 p) { vec4 t; return map(p, t); }
 
     vec3 calcNormal(vec3 p) {
-      vec2 e = vec2(0.0008, 0.0);
+      vec2 e = vec2(0.0006, 0.0);
       return normalize(vec3(
         mapD(p + e.xyy) - mapD(p - e.xyy),
         mapD(p + e.yxy) - mapD(p - e.yxy),
@@ -293,30 +380,26 @@
       ));
     }
 
-    // soft shadow
     float softShadow(vec3 ro, vec3 rd) {
       float res = 1.0;
       float t = 0.02;
       for (int i = 0; i < 40; i++) {
-        if (i >= 40) break;
         float h = mapD(ro + rd * t);
         if (h < 0.0006) return 0.0;
         res = min(res, 10.0 * h / t);
         t += clamp(h, 0.01, 0.2);
-        if (t > 5.0) break;
+        if (t > 6.0) break;
       }
       return clamp(res, 0.0, 1.0);
     }
 
     void main() {
       vec2 uv = (2.0 * gl_FragCoord.xy - uRes) / uRes.y;
-
       vec3 ro = uCamPos;
       vec3 rd = normalize(uCamBasis * vec3(uv, 1.6));
 
       float t = 0.0;
       float glow = 0.0;
-      float minDist = 1e10;
       bool hit = false;
       vec4 trap = vec4(0.0);
       int steps = 0;
@@ -327,17 +410,14 @@
         vec3 p = ro + rd * t;
         vec4 tr;
         float d = map(p, tr);
-        minDist = min(minDist, d);
-        // accumulate volumetric glow near the surface
         glow += 0.014 / (1.0 + d * d * 220.0);
-        if (d < 0.00035 * t + 0.00035) { hit = true; trap = tr; break; }
+        float eps = 0.0004 * t + 0.0003;
+        if (d < eps) { hit = true; trap = tr; break; }
         t += d;
         if (t > FAR) break;
       }
 
-      vec3 col = vec3(0.0);
-
-      // background: deep gradient + faint nebula
+      vec3 col;
       vec3 bg = mix(vec3(0.02, 0.03, 0.06), vec3(0.05, 0.04, 0.10), uv.y * 0.5 + 0.5);
       bg += 0.02 * palette(uv.x * 0.3 + uv.y * 0.2 + 0.5);
 
@@ -345,56 +425,42 @@
         vec3 p = ro + rd * t;
         vec3 n = calcNormal(p);
         vec3 lightDir = normalize(vec3(cos(uLight) * 1.2, 0.85, sin(uLight) * 1.2));
-
         float diff = clamp(dot(n, lightDir), 0.0, 1.0);
         float amb = 0.35 + 0.25 * n.y;
         float ao = 1.0 - float(steps) / float(uMaxSteps);
         ao = clamp(ao * ao * 1.15, 0.0, 1.0);
         float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
+        float sh = (uShadow == 1) ? softShadow(p + n * 0.003, lightDir) : 1.0;
 
-        float sh = 1.0;
-        if (uShadow == 1) sh = softShadow(p + n * 0.003, lightDir);
-
-        // orbit-trap driven color
         float tc = sqrt(trap.w);
         vec3 base = palette(tc * 0.9 + trap.x * 0.15);
         vec3 base2 = palette(trap.y * 0.4 + 0.35);
         base = mix(base, base2, 0.4);
-
         vec3 spec = vec3(1.0) * pow(clamp(dot(reflect(-lightDir, n), -rd), 0.0, 1.0), 24.0);
 
         col = base * (amb * ao + diff * sh * 1.15);
         col += spec * sh * 0.6;
         col += fres * base * 0.6;
-        // depth fade
         col = mix(col, bg, clamp(t / FAR, 0.0, 1.0) * 0.55);
       } else {
         col = bg;
       }
 
-      // add glow
       col += uGlow * glow * palette(0.6 + 0.2 * sin(uTime * 0.1));
-
-      // tone map + vignette + gamma
       col = col / (col + vec3(0.6));
       float vig = 1.0 - 0.28 * dot(uv, uv);
       col *= clamp(vig, 0.0, 1.0);
       col = pow(clamp(col, 0.0, 1.0), vec3(0.4545));
-
       gl_FragColor = vec4(col, 1.0);
     }
   `;
 
   function compile(type, src) {
     const s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-      throw new Error(gl.getShaderInfoLog(s));
-    }
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
     return s;
   }
-
   let prog;
   try {
     prog = gl.createProgram();
@@ -416,10 +482,12 @@
   gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
   const U = {};
-  ["uRes","uTime","uPower","uIter","uMaxSteps","uCamPos","uCamBasis","uHue","uGlow","uLight","uShadow","uPalA","uPalB","uPalC","uPalD"]
+  ["uRes","uTime","uPower","uIter","uMaxSteps","uFractal","uJuliaC","uCamPos","uCamBasis",
+   "uHue","uGlow","uLight","uShadow","uPalA","uPalB","uPalC","uPalD"]
     .forEach(n => U[n] = gl.getUniformLocation(prog, n));
 
-  /* ---------- palettes (IQ cosine) ---------- */
+  /* ---------- data ---------- */
+  const FRACTALS = ["Mandelbulb", "Mandelbox", "Menger", "Sierpinski", "Juliabulb"];
   const PALETTES = [
     { name: "Aurora",  a:[0.5,0.5,0.5], b:[0.5,0.5,0.5], c:[1.0,1.0,1.0], d:[0.0,0.10,0.20] },
     { name: "Ember",   a:[0.5,0.4,0.3], b:[0.5,0.4,0.35],c:[1.0,1.0,1.0], d:[0.0,0.05,0.10] },
@@ -429,20 +497,22 @@
     { name: "Candy",   a:[0.6,0.5,0.6], b:[0.4,0.45,0.4],c:[1.0,1.0,1.0], d:[0.80,0.90,0.30] },
     { name: "Mono",    a:[0.6,0.6,0.62],b:[0.4,0.4,0.42],c:[1.0,1.0,1.0], d:[0.0,0.0,0.0] },
   ];
-
-  /* ---------- state ---------- */
-  const state = {
-    power: 8, iter: 12, maxSteps: 110, hue: 0, glow: 0.35, light: 0.9,
-    shadow: true, animate: false, rotate: true, quality: 1, palette: 0,
-    yaw: 0.6, pitch: 0.35, dist: 2.8,
-    paused: false,
-  };
   const QUALITY = [
     { name: "Draft",    scale: 0.45, steps: 80 },
     { name: "Balanced", scale: 0.7,  steps: 110 },
     { name: "Sharp",    scale: 1.0,  steps: 140 },
     { name: "Ultra",    scale: 1.0,  steps: 160 },
   ];
+
+  /* ---------- state ---------- */
+  const state = {
+    fractal: 0, power: 8, iter: 12, hue: 0, glow: 0.35, light: 0.9,
+    shadow: true, animate: false, rotate: true, fly: false, flyspd: 0.3,
+    quality: 1, palette: 0,
+    yaw: 0.6, pitch: 0.35, dist: 2.8, target: [0, 0, 0],
+    juliaC: [0.28, 0.42, -0.30],
+    paused: false,
+  };
 
   /* ---------- resize ---------- */
   let W = 1, H = 1;
@@ -457,48 +527,47 @@
     gl.viewport(0, 0, W, H);
   }
   window.addEventListener("resize", resize);
-  resize();
 
   /* ---------- camera ---------- */
-  function camera() {
+  function camBasis() {
     const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
     const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
-    // forward points from camera toward origin
-    const pos = [state.dist * cp * sy, state.dist * sp, state.dist * cp * cy];
-    const fwd = [-pos[0], -pos[1], -pos[2]];
-    const fl = Math.hypot(fwd[0], fwd[1], fwd[2]);
-    const f = [fwd[0]/fl, fwd[1]/fl, fwd[2]/fl];
-    // right = normalize(cross(worldUp, f))
-    const wu = [0,1,0];
-    let r = [wu[1]*f[2]-wu[2]*f[1], wu[2]*f[0]-wu[0]*f[2], wu[0]*f[1]-wu[1]*f[0]];
-    const rl = Math.hypot(r[0],r[1],r[2]) || 1;
-    r = [r[0]/rl, r[1]/rl, r[2]/rl];
-    // up = cross(f, right)
+    const off = [state.dist * cp * sy, state.dist * sp, state.dist * cp * cy];
+    const pos = [state.target[0] + off[0], state.target[1] + off[1], state.target[2] + off[2]];
+    let f = [-off[0], -off[1], -off[2]];
+    const fl = Math.hypot(f[0], f[1], f[2]) || 1; f = [f[0]/fl, f[1]/fl, f[2]/fl];
+    let r = [f[2], 0, -f[0]]; // cross(worldUp,f) simplified with up=(0,1,0)
+    const rl = Math.hypot(r[0], r[1], r[2]) || 1; r = [r[0]/rl, r[1]/rl, r[2]/rl];
     const u = [f[1]*r[2]-f[2]*r[1], f[2]*r[0]-f[0]*r[2], f[0]*r[1]-f[1]*r[0]];
-    return { pos, basis: [r[0],r[1],r[2], u[0],u[1],u[2], f[0],f[1],f[2]] };
+    return { pos, f, r, u, basis: [r[0],r[1],r[2], u[0],u[1],u[2], f[0],f[1],f[2]] };
   }
 
   /* ---------- render loop ---------- */
-  let t0 = performance.now();
-  let fpsT = t0, fpsN = 0;
+  let t0 = performance.now(), fpsT = t0, fpsN = 0;
   const fpsEl = document.getElementById("fps");
-  const hudPower = document.getElementById("hudPower");
+  const hudName = document.getElementById("hudName");
 
   function frame(now) {
     const dt = Math.min((now - t0) / 1000, 0.05); t0 = now;
     if (!state.paused) {
       if (state.rotate) state.yaw += dt * 0.18;
-      if (state.animate) state.power = 8 + 5.0 * Math.sin(now * 0.00018);
+      if (state.animate) { state.power = 8 + 5.0 * Math.sin(now * 0.00018); $("power").value = state.power; $("v_power").textContent = state.power.toFixed(2); }
+      if (state.fly) {
+        const c = camBasis();
+        const s = state.flyspd * dt;
+        state.target[0] += c.f[0] * s; state.target[1] += c.f[1] * s; state.target[2] += c.f[2] * s;
+      }
     }
 
-    const cam = camera();
+    const cam = camBasis();
     const q = QUALITY[state.quality];
-
     gl.uniform2f(U.uRes, W, H);
     gl.uniform1f(U.uTime, now * 0.001);
     gl.uniform1f(U.uPower, state.power);
-    gl.uniform1i(U.uIter, state.iter);
+    gl.uniform1i(U.uIter, state.iter | 0);
     gl.uniform1i(U.uMaxSteps, q.steps);
+    gl.uniform1i(U.uFractal, state.fractal | 0);
+    gl.uniform3fv(U.uJuliaC, state.juliaC);
     gl.uniform3fv(U.uCamPos, cam.pos);
     gl.uniformMatrix3fv(U.uCamBasis, false, cam.basis);
     gl.uniform1f(U.uHue, state.hue);
@@ -508,36 +577,26 @@
     const P = PALETTES[state.palette];
     gl.uniform3fv(U.uPalA, P.a); gl.uniform3fv(U.uPalB, P.b);
     gl.uniform3fv(U.uPalC, P.c); gl.uniform3fv(U.uPalD, P.d);
-
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-    // fps + hud
     fpsN++;
-    if (now - fpsT > 500) {
-      fpsEl.textContent = Math.round(fpsN * 1000 / (now - fpsT));
-      fpsT = now; fpsN = 0;
-    }
-    if (state.animate) hudPower.textContent = state.power.toFixed(1);
-
+    if (now - fpsT > 500) { fpsEl.textContent = Math.round(fpsN * 1000 / (now - fpsT)); fpsT = now; fpsN = 0; }
+    scheduleSaveURL();
     requestAnimationFrame(frame);
   }
 
   /* ---------- UI wiring ---------- */
   const $ = id => document.getElementById(id);
-  const panel = $("panel"), fab = $("fab"), hint = $("hint");
+  const panel = $("panel"), fab = $("fab"), hint = $("hint"), toast = $("toast");
 
   function bindRange(id, key, fmt, onset) {
     const el = $(id), out = $("v_" + id);
-    const upd = () => {
-      let v = parseFloat(el.value);
-      state[key] = v;
-      if (out) out.textContent = fmt ? fmt(v) : v;
-      if (onset) onset(v);
-    };
-    el.addEventListener("input", upd); upd();
+    el._sync = () => { let v = parseFloat(el.value); if (out) out.textContent = fmt ? fmt(v) : v; };
+    el.addEventListener("input", () => { state[key] = parseFloat(el.value); el._sync(); if (onset) onset(state[key]); });
   }
-  bindRange("power", "power", v => v.toFixed(2), v => hudPower.textContent = v.toFixed(1));
+  bindRange("power", "power", v => v.toFixed(2));
   bindRange("iter", "iter", v => String(v|0));
+  bindRange("flyspd", "flyspd", v => v.toFixed(2));
   bindRange("hue", "hue", v => v.toFixed(2));
   bindRange("glow", "glow", v => v.toFixed(2));
   bindRange("light", "light", v => v.toFixed(1));
@@ -545,115 +604,199 @@
 
   function bindToggle(id, key, extra) {
     const el = $(id);
-    const sync = () => el.classList.toggle("on", !!state[key]);
-    el.addEventListener("click", () => { state[key] = !state[key]; sync(); if (extra) extra(); });
-    sync();
+    el._sync = () => el.classList.toggle("on", !!state[key]);
+    el.addEventListener("click", () => { state[key] = !state[key]; el._sync(); if (extra) extra(); });
   }
   bindToggle("t_animate", "animate");
   bindToggle("t_rotate", "rotate");
   bindToggle("t_shadow", "shadow");
+  bindToggle("t_fly", "fly");
+
+  // fractal chips
+  const fracWrap = $("fractals");
+  const powerLabel = $("l_power");
+  const POWER_LABELS = ["Power (morph)", "Scale (morph)", "Fold scale", "Fold scale", "Power (morph)"];
+  // sensible opening framing per fractal (each has a very different size)
+  const FRAC_VIEW = [
+    { dist: 2.8, iter: 12 }, // Mandelbulb
+    { dist: 6.5, iter: 11 }, // Mandelbox (much larger)
+    { dist: 3.0, iter: 8  }, // Menger
+    { dist: 2.6, iter: 14 }, // Sierpinski
+    { dist: 2.6, iter: 12 }, // Juliabulb
+  ];
+  function setFractal(i, applyDefaults) {
+    state.fractal = i;
+    [...fracWrap.children].forEach((x, j) => x.classList.toggle("active", j === i));
+    hudName.textContent = FRACTALS[i];
+    powerLabel.textContent = POWER_LABELS[i];
+    if (applyDefaults) {
+      const v = FRAC_VIEW[i];
+      state.dist = v.dist; state.target = [0, 0, 0];
+      state.iter = v.iter; $("iter").value = v.iter; if ($("iter")._sync) $("iter")._sync();
+    }
+  }
+  FRACTALS.forEach((name, i) => {
+    const c = document.createElement("div");
+    c.className = "chip"; c.textContent = name;
+    c.addEventListener("click", () => setFractal(i, true));
+    fracWrap.appendChild(c);
+  });
 
   // palette chips
   const palWrap = $("palettes");
+  function setPalette(i) {
+    state.palette = i;
+    [...palWrap.children].forEach((x, j) => x.classList.toggle("active", j === i));
+  }
   PALETTES.forEach((p, i) => {
     const c = document.createElement("div");
-    c.className = "chip" + (i === 0 ? " active" : "");
-    c.textContent = p.name;
-    c.addEventListener("click", () => {
-      state.palette = i;
-      [...palWrap.children].forEach((x, j) => x.classList.toggle("active", j === i));
-    });
+    c.className = "chip"; c.textContent = p.name;
+    c.addEventListener("click", () => setPalette(i));
     palWrap.appendChild(c);
   });
 
-  function setPanel(show) {
-    panel.classList.toggle("hidden", !show);
-    fab.style.display = show ? "none" : "flex";
-  }
+  function setPanel(show) { panel.classList.toggle("hidden", !show); fab.style.display = show ? "none" : "flex"; }
   $("btnHide").addEventListener("click", () => setPanel(false));
   fab.addEventListener("click", () => setPanel(true));
 
+  function resetView() { state.yaw = 0.6; state.pitch = 0.35; state.dist = 2.8; state.target = [0,0,0]; }
   $("btnReset").addEventListener("click", resetView);
-  function resetView() {
-    state.yaw = 0.6; state.pitch = 0.35; state.dist = 2.8;
-  }
 
   $("btnRandom").addEventListener("click", () => {
-    state.palette = Math.floor(Math.random() * PALETTES.length);
-    [...palWrap.children].forEach((x, j) => x.classList.toggle("active", j === state.palette));
-    $("power").value = (3 + Math.random() * 10).toFixed(2); $("power").dispatchEvent(new Event("input"));
-    $("hue").value = Math.random().toFixed(2); $("hue").dispatchEvent(new Event("input"));
-    $("light").value = (Math.random() * 6.28).toFixed(2); $("light").dispatchEvent(new Event("input"));
-    $("glow").value = (0.15 + Math.random() * 0.5).toFixed(2); $("glow").dispatchEvent(new Event("input"));
-    state.yaw = Math.random() * 6.28; state.pitch = (Math.random() - 0.5) * 1.2;
+    setFractal(Math.floor(Math.random() * FRACTALS.length), true);
+    setPalette(Math.floor(Math.random() * PALETTES.length));
+    setRange("power", (3 + Math.random() * 10).toFixed(2));
+    setRange("hue", Math.random().toFixed(2));
+    setRange("light", (Math.random() * 6.28).toFixed(2));
+    setRange("glow", (0.15 + Math.random() * 0.5).toFixed(2));
+    state.juliaC = [ (Math.random()-0.5)*1.2, (Math.random()-0.5)*1.2, (Math.random()-0.5)*1.2 ];
+    state.yaw = Math.random() * 6.28; state.pitch = (Math.random() - 0.5) * 1.2; state.target = [0,0,0];
   });
 
   $("btnShot").addEventListener("click", () => {
-    // ensure a fresh frame is present in the buffer
-    const cam = camera(); void cam;
     try {
       const url = canvas.toDataURL("image/png");
-      const a = document.createElement("a");
-      a.href = url; a.download = "fractalarium.png"; a.click();
-    } catch (e) { /* toDataURL can be blocked in some sandboxes */ }
+      const a = document.createElement("a"); a.href = url; a.download = "fractalarium.png"; a.click();
+    } catch (e) {}
   });
 
-  /* ---------- pointer / touch controls ---------- */
-  let dragging = false, lastX = 0, lastY = 0;
-  let pinchDist = 0;
+  let toastTimer;
+  function showToast(txt) { toast.textContent = txt; toast.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove("show"), 1600); }
 
+  $("btnShare").addEventListener("click", () => {
+    saveURL(true);
+    const link = location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(() => showToast("link copied ✓")).catch(() => showToast("link in address bar"));
+    } else showToast("link in address bar");
+  });
+
+  /* ---------- helpers ---------- */
+  function setRange(id, v) { const el = $(id); el.value = v; el.dispatchEvent(new Event("input")); }
+
+  function syncAllInputs() {
+    ["power","iter","flyspd","hue","glow","light","quality"].forEach(id => {
+      const el = $(id); if (el._sync) el._sync();
+    });
+    $("power").value = state.power; $("iter").value = state.iter;
+    $("flyspd").value = state.flyspd; $("hue").value = state.hue;
+    $("glow").value = state.glow; $("light").value = state.light; $("quality").value = state.quality;
+    ["power","iter","flyspd","hue","glow","light","quality"].forEach(id => { const el = $(id); if (el._sync) el._sync(); });
+    ["t_animate","t_rotate","t_shadow","t_fly"].forEach(id => { const el = $(id); if (el._sync) el._sync(); });
+    setFractal(state.fractal); setPalette(state.palette);
+  }
+
+  /* ---------- URL state (shareable links) ---------- */
+  const r3 = n => Math.round(n * 1000) / 1000;
+  function saveURL(force) {
+    const s = state;
+    const p = new URLSearchParams();
+    p.set("f", s.fractal); p.set("p", r3(s.power)); p.set("it", s.iter);
+    p.set("pal", s.palette); p.set("hue", r3(s.hue)); p.set("gl", r3(s.glow));
+    p.set("li", r3(s.light)); p.set("sh", s.shadow ? 1 : 0); p.set("q", s.quality);
+    p.set("an", s.animate ? 1 : 0); p.set("ro", s.rotate ? 1 : 0); p.set("fl", s.fly ? 1 : 0);
+    p.set("fs", r3(s.flyspd));
+    p.set("ya", r3(s.yaw)); p.set("pi", r3(s.pitch)); p.set("di", r3(s.dist));
+    p.set("tx", r3(s.target[0])); p.set("ty", r3(s.target[1])); p.set("tz", r3(s.target[2]));
+    p.set("jc", [r3(s.juliaC[0]), r3(s.juliaC[1]), r3(s.juliaC[2])].join("_"));
+    const hash = "#" + p.toString();
+    if (force || hash !== location.hash) history.replaceState(null, "", location.pathname + location.search + hash);
+  }
+  let saveTimer = 0;
+  function scheduleSaveURL() {
+    const t = performance.now();
+    if (t - saveTimer > 700) { saveTimer = t; saveURL(false); }
+  }
+  function loadURL() {
+    if (!location.hash || location.hash.length < 2) return;
+    const p = new URLSearchParams(location.hash.slice(1));
+    const num = (k, d) => p.has(k) ? parseFloat(p.get(k)) : d;
+    const int = (k, d) => p.has(k) ? (parseInt(p.get(k), 10) || 0) : d;
+    state.fractal = Math.max(0, Math.min(FRACTALS.length - 1, int("f", state.fractal)));
+    state.power = num("p", state.power); state.iter = int("it", state.iter);
+    state.palette = Math.max(0, Math.min(PALETTES.length - 1, int("pal", state.palette)));
+    state.hue = num("hue", state.hue); state.glow = num("gl", state.glow);
+    state.light = num("li", state.light); state.shadow = int("sh", 1) === 1;
+    state.quality = Math.max(0, Math.min(3, int("q", state.quality)));
+    state.animate = int("an", 0) === 1; state.rotate = int("ro", 1) === 1; state.fly = int("fl", 0) === 1;
+    state.flyspd = num("fs", state.flyspd);
+    state.yaw = num("ya", state.yaw); state.pitch = num("pi", state.pitch); state.dist = num("di", state.dist);
+    state.target = [num("tx", 0), num("ty", 0), num("tz", 0)];
+    if (p.has("jc")) { const a = p.get("jc").split("_").map(parseFloat); if (a.length === 3 && a.every(x => !isNaN(x))) state.juliaC = a; }
+  }
+
+  /* ---------- pointer / touch ---------- */
+  let dragging = false, lastX = 0, lastY = 0, pinchDist = 0;
   function orbit(dx, dy) {
     state.yaw -= dx * 0.006;
     state.pitch = Math.max(-1.5, Math.min(1.5, state.pitch + dy * 0.006));
-    if (state.rotate) { /* keep auto-rotate but user override wins momentarily */ }
   }
-
-  canvas.addEventListener("pointerdown", e => {
-    dragging = true; lastX = e.clientX; lastY = e.clientY;
-    canvas.classList.add("dragging");
-    canvas.setPointerCapture(e.pointerId);
-  });
-  canvas.addEventListener("pointermove", e => {
-    if (!dragging) return;
-    orbit(e.clientX - lastX, e.clientY - lastY);
-    lastX = e.clientX; lastY = e.clientY;
-  });
-  canvas.addEventListener("pointerup", e => {
-    dragging = false; canvas.classList.remove("dragging");
-  });
+  canvas.addEventListener("pointerdown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; canvas.classList.add("dragging"); canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener("pointermove", e => { if (!dragging) return; orbit(e.clientX - lastX, e.clientY - lastY); lastX = e.clientX; lastY = e.clientY; });
+  canvas.addEventListener("pointerup", () => { dragging = false; canvas.classList.remove("dragging"); });
   canvas.addEventListener("pointercancel", () => { dragging = false; canvas.classList.remove("dragging"); });
-
-  canvas.addEventListener("wheel", e => {
-    e.preventDefault();
-    state.dist = Math.max(1.15, Math.min(8, state.dist * (1 + Math.sign(e.deltaY) * 0.08)));
-  }, { passive: false });
-
-  // pinch zoom for touch
+  canvas.addEventListener("wheel", e => { e.preventDefault(); state.dist = Math.max(0.05, Math.min(9, state.dist * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
   canvas.addEventListener("touchmove", e => {
     if (e.touches.length === 2) {
       const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      if (pinchDist) state.dist = Math.max(1.15, Math.min(8, state.dist * (pinchDist / d)));
-      pinchDist = d;
-      e.preventDefault();
+      if (pinchDist) state.dist = Math.max(0.05, Math.min(9, state.dist * (pinchDist / d)));
+      pinchDist = d; e.preventDefault();
     }
   }, { passive: false });
   canvas.addEventListener("touchend", () => { pinchDist = 0; });
 
-  /* ---------- keyboard ---------- */
+  /* ---------- keyboard (fly + shortcuts) ---------- */
+  const keys = {};
   window.addEventListener("keydown", e => {
-    if (e.key === "h" || e.key === "H") setPanel(panel.classList.contains("hidden"));
-    else if (e.key === " ") { state.paused = !state.paused; e.preventDefault(); }
-    else if (e.key === "r" || e.key === "R") resetView();
-    else if (e.key === "f" || e.key === "F") {
-      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
-      else document.exitFullscreen?.();
-    }
+    const k = e.key.toLowerCase();
+    if (k === "h") setPanel(panel.classList.contains("hidden"));
+    else if (k === " ") { state.paused = !state.paused; e.preventDefault(); }
+    else if (k === "r") resetView();
+    else if (k === "f") { if (!document.fullscreenElement) document.documentElement.requestFullscreen?.(); else document.exitFullscreen?.(); }
+    else if ("wasdqe".includes(k)) { keys[k] = true; e.preventDefault(); }
   });
+  window.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
 
-  // fade the hint after a while
-  setTimeout(() => { if (hint) hint.style.opacity = "0"; }, 6000);
+  // continuous WASDQE fly (independent of frame dt cap)
+  setInterval(() => {
+    if (state.paused) return;
+    const active = "wasdqe".split("").some(k => keys[k]);
+    if (!active) return;
+    const c = camBasis();
+    const spd = 0.02 * Math.max(0.15, state.dist);
+    const mv = (v, s) => { state.target[0] += v[0]*s; state.target[1] += v[1]*s; state.target[2] += v[2]*s; };
+    if (keys.w) mv(c.f, spd);   if (keys.s) mv(c.f, -spd);
+    if (keys.d) mv(c.r, spd);   if (keys.a) mv(c.r, -spd);
+    if (keys.e) mv(c.u, spd);   if (keys.q) mv(c.u, -spd);
+  }, 16);
+
+  window.addEventListener("hashchange", () => { /* allow external nav */ });
+  setTimeout(() => { if (hint) hint.style.opacity = "0"; }, 7000);
 
   /* ---------- go ---------- */
+  loadURL();
+  resize();
+  syncAllInputs();
   msg.style.display = "none";
   requestAnimationFrame(frame);
 })();
