@@ -1,9 +1,10 @@
-# Fractalarium — a browser fractal explorer
+# Fractalarium — a trippy browser fractal explorer
 
 A real-time, interactive **3D fractal** explorer that runs entirely in the browser.
 Inspired by the gorgeous [Mandelbulber2](https://github.com/buddhi1980/mandelbulber2)
 desktop renderer, this is a lightweight, zero-dependency, "more interactive vibe"
-take: a single HTML file that ray-marches fractals on the GPU with WebGL.
+take: a single HTML file that ray-marches fractals on the GPU with WebGL — then runs
+the result through a live **glitch / datamosh post-processing** pipeline.
 
 ![preview](./preview.png)
 
@@ -24,6 +25,25 @@ Pick from a formula dropdown, each with its own sensible default framing:
 
 The **Shape / power** slider means something different per fractal (exponent, box
 scale, fold scale) and can be auto-morphed for a breathing effect.
+
+## Glitch FX (take a trip)
+
+The rendered fractal is piped through a second WebGL pass with a ping-pong
+feedback buffer, so you can melt it in real time:
+
+- **Effects**: None, **Datamosh** (chromatic channel displacement + trails),
+  **Pixel Sort**, **Feedback** (rotating/zooming tunnel echoes), **Color Shift**
+  (animated RGB separation)
+- **Intensity / Displace / Trails / Threshold** to dial the chaos
+- **Color grade**: hue drift, brightness, contrast, saturation
+- **Trip presets**: Default, Psychedelic, Ghostly, Neon, Glitchy, Dreamy — one tap
+  sets the effect, FX, color grade and palette together
+- **Freeze** to hold the scene still, **Record** to capture MP4/WebM video, and
+  **Save PNG** for stills
+
+(Presets and the glitch pipeline are adapted from a webcam "datamosh" toy — here
+the fractal renderer is the video source, so webcam/upload/clip-studio bits are
+not included.)
 
 ## Controls
 
