@@ -127,6 +127,7 @@
 </head>
 <body>
 <canvas id="glcanvas"></canvas>
+<video id="webcam" playsinline autoplay muted style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:-10px"></video>
 
 <div id="topbar">
   <div id="brand">
@@ -174,6 +175,16 @@
       <input type="range" id="flyspd" min="0.02" max="1.5" step="0.02" value="0.3">
     </div>
     <div class="toggle" id="t_freeze"><span>Freeze (hold still)</span><span class="sw"></span></div>
+  </div>
+
+  <div class="group">
+    <div class="glabel">Camera source</div>
+    <div class="chips" id="cammodes"></div>
+    <div class="row" style="margin-top:12px">
+      <div class="rlabel"><label>Camera / fractal blend</label><span class="val" id="v_cammix">0.50</span></div>
+      <input type="range" id="cammix" min="0" max="1" step="0.01" value="0.5">
+    </div>
+    <div class="toggle" id="t_flip"><span>Flip camera (front/back)</span><span class="sw"></span></div>
   </div>
 
   <div class="group">
@@ -350,7 +361,8 @@
       col+=uGlow*glow*palette(0.6+0.2*sin(uTime*0.1));
       col=col/(col+vec3(0.6)); float vig=1.0-0.28*dot(uv,uv); col*=clamp(vig,0.0,1.0);
       col=pow(clamp(col,0.0,1.0),vec3(0.4545));
-      gl_FragColor=vec4(col,1.0);
+      // alpha carries a hit mask so the post pass can composite a camera feed behind the fractal
+      gl_FragColor=vec4(col, hit?1.0:0.0);
     }`;
 
   /* ---------- glitch post shader (pass 2) ---------- */
@@ -359,6 +371,7 @@
     uniform sampler2D uScene; uniform sampler2D uPrev; uniform vec2 uRes; uniform float uTime;
     uniform int uEffect; uniform float uIntensity; uniform float uDisplace; uniform float uFeedback;
     uniform float uHueSpeed; uniform float uThreshold; uniform float uBright; uniform float uContrast; uniform float uSat;
+    uniform sampler2D uCam; uniform int uCamMode; uniform float uCamMix; uniform float uCamAspect;
     float rand(vec2 st){ return fract(sin(dot(st,vec2(12.9898,78.233)))*43758.5453123+uTime*0.01); }
     float noise(vec2 st){ vec2 i=floor(st),f=fract(st);
       float a=rand(i),b=rand(i+vec2(1.,0.)),c=rand(i+vec2(0.,1.)),d=rand(i+vec2(1.,1.));
@@ -375,9 +388,20 @@
       float q=l<0.5?l*(1.0+s):l+s-l*s; float p=2.0*l-q; return vec3(h2r(p,q,h+1.0/3.0),h2r(p,q,h),h2r(p,q,h-1.0/3.0)); }
     vec3 bc(vec3 col,float b,float ct){ col+=b; col=(col-0.5)*ct+0.5; return clamp(col,0.0,1.0); }
     vec3 saturate3(vec3 col,float s){ float g=dot(col,vec3(0.2126,0.7152,0.0722)); return mix(vec3(g),col,s); }
+    // cover-fit + mirror the webcam into the frame
+    vec2 camCoord(vec2 c){ float sa=uRes.x/uRes.y;
+      vec2 s=(uCamAspect>sa)?vec2(sa/uCamAspect,1.0):vec2(1.0,uCamAspect/sa);
+      vec2 cu=(c-0.5)*s+0.5; cu.x=1.0-cu.x; return cu; }
+    // composited source: fractal, camera, or a mix (per uCamMode); alpha of uScene is the fractal hit mask
+    vec3 source(vec2 c){ vec4 f=texture2D(uScene,c); if(uCamMode==0) return f.rgb;
+      vec3 cam=texture2D(uCam,camCoord(c)).rgb;
+      if(uCamMode==1) return mix(cam,f.rgb,f.a);       // fractal over camera
+      if(uCamMode==2) return mix(f.rgb,cam,uCamMix);   // blend
+      return cam;                                       // camera only
+    }
     void main(){
       vec2 uv=gl_FragCoord.xy/uRes;
-      vec3 scene=texture2D(uScene,uv).rgb;
+      vec3 scene=source(uv);
       // shared warped feedback coordinate
       vec2 cc=uv-0.5;
       float ang=uTime*0.05*uIntensity*(uEffect==3?1.0:0.35);
@@ -392,14 +416,14 @@
         float amt=uDisplace*(1.0+uIntensity*2.0);
         vec2 ro=(vec2(rand(uv.yx+uTime*0.1))-0.5)*amt;
         vec2 bo=(vec2(rand(uv.xy-uTime*0.1))-0.5)*amt;
-        col=vec3(texture2D(uScene,uv+ro).r, scene.g, texture2D(uScene,uv+bo).b);
+        col=vec3(source(uv+ro).r, scene.g, source(uv+bo).b);
         col=mix(col,prev,clamp(uFeedback,0.0,0.95));
       } else if(uEffect==2){              // Pixel sort-ish
         float b=dot(scene,vec3(0.299,0.587,0.114));
         vec2 dir=(sin(uTime*0.1)>0.0)?vec2(1.0,0.0):vec2(0.0,1.0);
         float th=uThreshold*(1.0+uIntensity*0.5);
         vec2 sc=uv; if(b>th){ sc+=dir*uDisplace*10.0*(b-th); sc=fract(sc); }
-        col=texture2D(uScene,sc).rgb;
+        col=source(sc);
         col=mix(col,prev,clamp(uFeedback,0.0,0.95));
       } else if(uEffect==3){              // Feedback tunnel
         float fbA=clamp(uFeedback*(1.0+uIntensity),0.0,0.96);
@@ -411,7 +435,7 @@
         vec2 rO=vec2(sin(uTime*0.3),cos(uTime*0.2))*cs;
         vec2 gO=vec2(sin(uTime*0.2+2.0),cos(uTime*0.3+1.0))*cs;
         vec2 bO=vec2(sin(uTime*0.1+4.0),cos(uTime*0.4+3.0))*cs;
-        col=vec3(texture2D(uScene,uv+rO).r, texture2D(uScene,uv+gO).g, texture2D(uScene,uv+bO).b);
+        col=vec3(source(uv+rO).r, source(uv+gO).g, source(uv+bO).b);
         col=mix(col,prev,clamp(uFeedback,0.0,0.95));
       }
       if(uHueSpeed!=0.0){ vec3 h=rgb2hsl(col); h.x=fract(h.x+uTime*uHueSpeed); if(h.y<0.05) h.y=0.5; col=hsl2rgb(h); }
@@ -441,7 +465,7 @@
 
   const uf=(p,names)=>{ const o={}; names.forEach(n=>o[n]=gl.getUniformLocation(p,n)); return o; };
   const UF = uf(progFractal, ["uRes","uTime","uPower","uIter","uMaxSteps","uFractal","uJuliaC","uCamPos","uCamBasis","uHue","uGlow","uLight","uShadow","uPalA","uPalB","uPalC","uPalD"]);
-  const UP = uf(progPost, ["uScene","uPrev","uRes","uTime","uEffect","uIntensity","uDisplace","uFeedback","uHueSpeed","uThreshold","uBright","uContrast","uSat"]);
+  const UP = uf(progPost, ["uScene","uPrev","uRes","uTime","uEffect","uIntensity","uDisplace","uFeedback","uHueSpeed","uThreshold","uBright","uContrast","uSat","uCam","uCamMode","uCamMix","uCamAspect"]);
   const UB = uf(progBlit, ["uTex","uRes"]);
 
   /* ---------- framebuffers ---------- */
@@ -495,9 +519,47 @@
     animate:false, rotate:true, fly:false, flyspd:0.3, freeze:false,
     quality:1, palette:0,
     effect:0, intensity:0.5, displace:0.01, feedback:0.2, huespeed:0, threshold:0.5, bright:0, contrast:1, sat:1,
+    camMode:0, cammix:0.5, facing:"user",
     yaw:0.6, pitch:0.35, dist:2.8, target:[0,0,0], juliaC:[0.28,0.42,-0.30],
     paused:false,
   };
+
+  /* ---------- webcam source ---------- */
+  const CAM_MODES=["Off","Background","Blend","Camera only"];
+  const webcam=document.getElementById("webcam");
+  let camStream=null, camReady=false, camAspect=1.777;
+  let camTex=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,camTex);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([10,10,20,255]));
+
+  async function startCamera(){
+    if(camStream) return true;
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ showToast("camera not supported"); return false; }
+    const constraints={ audio:false, video:{ facingMode:state.facing, width:{ideal:1280}, height:{ideal:720} } };
+    for(let attempt=0; attempt<2; attempt++){
+      try{
+        camStream=await navigator.mediaDevices.getUserMedia(constraints);
+        webcam.srcObject=camStream; await webcam.play().catch(()=>{});
+        camReady=true; return true;
+      }catch(e){ camStream=null; camReady=false; if(attempt===0){ await new Promise(r=>setTimeout(r,350)); continue; }
+        showToast(e && e.name==="NotAllowedError" ? "camera permission denied" : "camera unavailable"); return false; }
+    }
+    return false;
+  }
+  function stopCamera(){
+    if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
+    camReady=false; if(webcam) webcam.srcObject=null;
+  }
+  async function restartCamera(){ stopCamera(); await startCamera(); }
+  function uploadCamFrame(){
+    if(!camReady || webcam.readyState<2 || !webcam.videoWidth) return;
+    camAspect=webcam.videoWidth/webcam.videoHeight;
+    gl.bindTexture(gl.TEXTURE_2D,camTex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+    try{ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,webcam); }catch(e){}
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+  }
 
   /* ---------- resize ---------- */
   let W=1,H=1;
@@ -536,6 +598,9 @@
     }
     const cam=camBasis(); const q=QUALITY[state.quality];
 
+    // live webcam upload (hold last frame while frozen)
+    if(state.camMode!==0 && moving) uploadCamFrame();
+
     // pass 1 — fractal → sceneFBO
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFBO); gl.viewport(0,0,W,H); gl.useProgram(progFractal);
     gl.uniform2f(UF.uRes,W,H); gl.uniform1f(UF.uTime,clock); gl.uniform1f(UF.uPower,state.power);
@@ -555,6 +620,8 @@
     gl.uniform1f(UP.uIntensity,state.intensity); gl.uniform1f(UP.uDisplace,state.displace); gl.uniform1f(UP.uFeedback,state.feedback);
     gl.uniform1f(UP.uHueSpeed,state.huespeed); gl.uniform1f(UP.uThreshold,state.threshold);
     gl.uniform1f(UP.uBright,state.bright); gl.uniform1f(UP.uContrast,state.contrast); gl.uniform1f(UP.uSat,state.sat);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, camTex); gl.uniform1i(UP.uCam,2);
+    gl.uniform1i(UP.uCamMode, camReady?state.camMode:0); gl.uniform1f(UP.uCamMix,state.cammix); gl.uniform1f(UP.uCamAspect,camAspect);
     drawFS(progPost);
 
     // pass 3 — blit → screen
@@ -591,6 +658,7 @@
   bindRange("bright","bright",v=>v.toFixed(2));
   bindRange("contrast","contrast",v=>v.toFixed(2));
   bindRange("sat","sat",v=>v.toFixed(2));
+  bindRange("cammix","cammix",v=>v.toFixed(2));
   bindRange("quality","quality",v=>QUALITY[v|0].name,()=>resize());
 
   function bindToggle(id,key,extra){ const el=$(id); el._sync=()=>el.classList.toggle("on",!!state[key]);
@@ -615,6 +683,20 @@
   function setEffect(i){ state.effect=i; [...fxWrap.children].forEach((x,j)=>x.classList.toggle("active",j===i)); }
   EFFECTS.forEach((name,i)=>{ const c=document.createElement("div"); c.className="chip"; c.textContent=name;
     c.addEventListener("click",()=>setEffect(i)); fxWrap.appendChild(c); });
+
+  // camera-source chips (starts/stops the webcam on demand)
+  const camWrap=$("cammodes");
+  async function setCamMode(i, fromUI){
+    if(i!==0){ if(fromUI){ const ok=await startCamera(); if(!ok){ i=0; } } }
+    else { stopCamera(); }
+    state.camMode=i; [...camWrap.children].forEach((x,j)=>x.classList.toggle("active",j===i));
+  }
+  CAM_MODES.forEach((name,i)=>{ const c=document.createElement("div"); c.className="chip"; c.textContent=name;
+    c.addEventListener("click",()=>setCamMode(i,true)); camWrap.appendChild(c); });
+  const flipEl=$("t_flip");
+  flipEl._sync=()=>flipEl.classList.toggle("on", state.facing==="environment");
+  flipEl.addEventListener("click",async ()=>{ state.facing = state.facing==="user"?"environment":"user"; flipEl._sync();
+    if(camStream) await restartCamera(); });
 
   // palette chips
   const palWrap=$("palettes");
@@ -733,10 +815,10 @@
   }
 
   function syncAllInputs(){
-    const ids=["power","iter","flyspd","hue","glow","light","intensity","displace","feedback","threshold","huespeed","bright","contrast","sat","quality"];
+    const ids=["power","iter","flyspd","hue","glow","light","intensity","displace","feedback","threshold","huespeed","bright","contrast","sat","cammix","quality"];
     ids.forEach(id=>{ const el=$(id); if(el){ el.value=state[id]; if(el._sync) el._sync(); } });
-    ["t_animate","t_rotate","t_shadow","t_fly","t_freeze"].forEach(id=>{ const el=$(id); if(el&&el._sync) el._sync(); });
-    setFractal(state.fractal); setEffect(state.effect); setPalette(state.palette);
+    ["t_animate","t_rotate","t_shadow","t_fly","t_freeze","t_flip"].forEach(id=>{ const el=$(id); if(el&&el._sync) el._sync(); });
+    setFractal(state.fractal); setEffect(state.effect); setPalette(state.palette); setCamMode(0,false);
   }
 
   /* ---------- pointer / touch ---------- */

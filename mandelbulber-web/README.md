@@ -41,9 +41,24 @@ feedback buffer, so you can melt it in real time:
 - **Freeze** to hold the scene still, **Record** to capture MP4/WebM video, and
   **Save PNG** for stills
 
-(Presets and the glitch pipeline are adapted from a webcam "datamosh" toy — here
-the fractal renderer is the video source, so webcam/upload/clip-studio bits are
-not included.)
+### Camera source
+
+You can also feed your **live webcam** into the same glitch pipeline:
+
+- **Off** — pure fractal (default)
+- **Background** — the fractal floats over your camera feed (composited via the
+  fractal's hit mask)
+- **Blend** — cross-fade fractal and camera with the blend slider
+- **Camera only** — the classic datamosh-over-webcam toy, now inside Fractalarium
+- **Flip camera** — switch front/back on devices with more than one
+
+The camera starts only when you pick a mode (a permission prompt appears), stops
+when you return to Off, and is deliberately **never** encoded into shareable links —
+a shared trip never activates someone else's camera.
+
+(Presets and the glitch pipeline are adapted from a webcam "datamosh" toy; the
+media-file upload and audio+video "clip studio" queue from that toy are not
+included, since the fractal renderer is the primary source here.)
 
 ## Controls
 
